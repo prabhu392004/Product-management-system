@@ -1,148 +1,115 @@
-from django.http import HttpResponse
+from django.http import HttpResponse,JsonResponse
 from .models import Product
 from django.views.decorators.csrf import csrf_exempt
 import json
+from rest_framework.decorators import api_view
+from rest_framework import status
+from rest_framework.response import Response
+from .serializers import productserializer
+
+
+def build_response(message,status_code,data=None,errors=None):
+    response_data={
+        'status_code':status_code,
+        'message':message
+    }
+    if data is not None:
+        response_data['data']=data
+
+    if errors is not None:
+        response_data['errors']=errors
+
+    return JsonResponse(data=response_data, status=status_code)
+
 
 # Create your views here.
 @csrf_exempt
+@api_view(['GET','POST'])
 def product_list_view(request):
     if request.method=="GET":
         products=Product.objects.all()
-        PRODUCTS =[]
-        for product in products:
-            pro_dict={
-                'id':product.id,
-                'name':product.name,
-                'price':product.price,
-                'quantity':product.quantity,
-                'brand':product.brand
+        serializer=productserializer(instance=products, many=True)
+        return build_response('All products fetched successfully', status_code=status.HTTP_200_OK,data=serializer.data)
 
-            }
-            PRODUCTS.append(pro_dict)
-        json_data=json.dumps(PRODUCTS)
-        return HttpResponse(json_data,content_type='application/json',status=200)
 
+
+
+       
     if request.method =='POST':
-        request_data=json.loads(request.body)
+        serializer=productserializer(data=request.data)
 
 
-        product=Product.objects.create(**request_data)
+        if serializer.is_valid():
+            Product.objects.create(**serializer.validated_data)
 
-        python_data={
-            'message':'Product Created Successfully',
-            'data':{
-                'id':product.id,
-                'name':product.name,
-                'price':product.price,
-                'quantity':product.quantity,
-                'brand':product.brand
-            }
-        }
-
-        response_data=json.dumps(python_data)
+            return build_response('product created successfully',status_code=status.HTTP_201_CREATED,data=serializer.data)
+        else:
+            return build_response('Validation Failed',status_code=status.HTTP_400_BAD_REQUEST,errors=serializer.errors)
+        
 
 
-        return HttpResponse(response_data,content_type='application/json',status=201)
-    python_data={
-        'data':"only 'GET' and 'POST' methods are Supported"
-    }
-    response_data=json.dumps(python_data)
-    return HttpResponse(response_data,content_type='application/json',status=405)
 
 
-@csrf_exempt   
+@csrf_exempt 
+@api_view(['GET','PUT','PATCH','DELETE'])  
 def product_detail_view(request,product_id):
     try:
         product=Product.objects.get(id=product_id)
     except Product.DoesNotExist:
-        python_data={
-            'errors':'product id does not exists'
-        }
-        response_data=json.dumps(python_data)
-        return HttpResponse(response_data,content_type='appllication/json',status=400)
-
+        return build_response('Resource Not Found',status_code=status.HTTP_404_NOT_FOUND,errors='Product Id doest not exists')
+    
+        
     if request.method=='GET':
-        python_data={
-            'message':'product found successfully',
-            'data':{
-                'id':product.id,
-                'name':product.name,
-                'price':product.price,
-                'quantity':product.quantity,
-                'brand':product.brand
-            }
-        }
-        response_data=json.dumps(python_data)
-        return HttpResponse(response_data,content_type='application/json',status=200)
+        serializer=productserializer(instance=product)
+        return build_response('product found successfully',status_code=status.HTTP_200_OK,data=serializer.data)
 
 
     if request.method=="PUT":
-        request_data=json.load(request.body)
+        serializer=productserializer(data=request.data)
 
 
-        required_fields=['name','price','quantity','brand']
+        if serializer.is_valid():
+            product.name=serializer.validated_data.get('name')
+            product.price=serializer.validated_data.get('price')
+            product.quantity=serializer.validated_data.get('quantity')
+            product.brand=serializer.validated_data.get('brand')
 
 
-        missing_fields=[]
-        for field in required_fields:
-            if field not in request_data:
-                missing_fields.append(field)
-        if  missing_fields:
-            python_data={
-                'errors': 'missing Fields'
-            }
-            fields={}
-            for field in missing_fields:
-                fields[field]='Field is Mandatory'
-            python_data['fields']=fields
+            product.save()
 
-            response_data=json.dumps(python_data)
-            return HttpResponse(response_data,content_type='application/json',status=400)
-        product.name=request_data.get('name')
-        product.price=request_data.get('price')
-        product.quantity=request_data.get('quantity')
-        product.brand=request_data.get('brand')
 
-        product.save()
+            return build_response('product replaced successfully',status_code=status.HTTP_200_OK,data=serializer.data)
+        else:
+            return build_response('validation failed', status_code=status.HTTP_400_BAD_REQUEST,errors=serializer.errors)
 
-        python_data={
-            'message':'product replaced successfully',
-            'data':{
-                'id':product.id,
-                'name':product.name,
-                'price':product.price,
-                'quantity':product.quantity,
-                'brand':product.brand
-            }
-        }
 
-        response_data=json.dumps(python_data)
-        return HttpResponse(response_data,content_type='application/json',status=200)
+     
+
+    
 
 
     if request.method=='PATCH':
-        try:
-            request_data=json.loads(request.body)
-        except json.JSONDecodeError:
-            return HttpResponse(json.dumps({'error':"invalid Json"}),content_type='application/json',status=400)
-        allowed_fields=['name','price','quantity','brand']
-        for  field in allowed_fields:
-            if field in request_data:
-                setattr(product,field,request_data[field])
-        product.save()
-        python_data={
-            'message':"product updated successfully",
-            'data':{
-                            'id':product.id,
-                            'name':product.name,
-                            'price':product.price,
-                            'quantity':product.quantity,
-                            'brand':product.brand
-                }
-        }
-        return HttpResponse(json.dumps(python_data),content_type='application/json',status=200)
+        serializer=productserializer(data=request.data,instance=product,partial=True)
+
+        if serializer.is_valid():
+            product.name=serializer.validated_data.get('name',product.name)
+            product.price=serializer.validated_data.get('price',product.price)
+            product.quantity=serializer.validated_data.get('quantity',product.quantity)
+            product.brand=serializer.validated_data.get('brand',product.brand)
+
+            product.save()
+
+            return build_response('product updated successfully', status_code=status.HTTP_200_OK,data=serializer.data)
+        else:
+            return build_response('validation failed',status_code=status.HTTP_404_BAD_REQUEST,errors=serializer.errors)
+            
 
 
+    if request.method=="DELETE":
+        product.delete()
+        return HttpResponse(status=status.HTTP_204_NO_CONTENT)
+
+    
         
         
 
