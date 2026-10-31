@@ -1,8 +1,9 @@
 from django.http import HttpResponse,JsonResponse
 from .models import Product
+from django.shortcuts import get_object_or_404
 from django.views.decorators.csrf import csrf_exempt
 import json
-from rest_framework.decorators import api_view
+from rest_framework.decorators import APIView
 from rest_framework import status
 from rest_framework.response import Response
 from .serializers import productserializer
@@ -23,10 +24,9 @@ def build_response(message,status_code,data=None,errors=None):
 
 
 # Create your views here.
-@csrf_exempt
-@api_view(['GET','POST'])
-def product_list_view(request):
-    if request.method=="GET":
+class product_list_view(APIView):
+
+    def get(self,request):
         products=Product.objects.all()
         serializer=productserializer(instance=products, many=True)
         return build_response('All products fetched successfully', status_code=status.HTTP_200_OK,data=serializer.data)
@@ -35,7 +35,7 @@ def product_list_view(request):
 
 
        
-    if request.method =='POST':
+    def post(self,request):
         serializer=productserializer(data=request.data)
 
 
@@ -50,64 +50,54 @@ def product_list_view(request):
 
 
 
-@csrf_exempt 
-@api_view(['GET','PUT','PATCH','DELETE'])  
-def product_detail_view(request,product_id):
-    try:
-        product=Product.objects.get(id=product_id)
-    except Product.DoesNotExist:
-        return build_response('Resource Not Found',status_code=status.HTTP_404_NOT_FOUND,errors='Product Id doest not exists')
-    
-        
-    if request.method=='GET':
-        serializer=productserializer(instance=product)
-        return build_response('product found successfully',status_code=status.HTTP_200_OK,data=serializer.data)
+class product_detail_view(APIView):  
 
+    def get(self,request,product_id):
+        product=get_object_or_404(Product,pk=product_id)
+        serializer=productserializer(instace=product)
 
-    if request.method=="PUT":
-        serializer=productserializer(data=request.data)
+        return build_response('product found Successfully', status_code=status.HTTP_200_OK,data=ser)
+   
+    def put(self,request_id):
+        product=get_object_or_404(Product,pk=product_id)   
+        serializer=productserializer(data=request.data,insatnce=product)
 
 
         if serializer.is_valid():
-            product.name=serializer.validated_data.get('name')
-            product.price=serializer.validated_data.get('price')
-            product.quantity=serializer.validated_data.get('quantity')
-            product.brand=serializer.validated_data.get('brand')
-
-
-            product.save()
-
+            serializer.save()
 
             return build_response('product replaced successfully',status_code=status.HTTP_200_OK,data=serializer.data)
         else:
-            return build_response('validation failed', status_code=status.HTTP_400_BAD_REQUEST,errors=serializer.errors)
+            return build_response("validation Failed",status_code=status.HTTP_400_BAD_REQUEST,errors=serializer.errors)
+    
+
+    def patch(self,request,product_id):
+        product=get_object_or_404(product,pk=product_id)
+        serializer=productserializer(data=request.data,instance=product,partial=TRUE)
 
 
+        if serializer.is_valid():
+            serializer.save()
+
+            return build_response("product updated successfully",status_code=status.HTTP_200_OK,data=serializer.data)
+        else:
+            return build_response("validation Failed ",status_code=status.HTTP_400_BAD_REQUEST,errors=serializer.errors)
+
+    def delete(self,request,product_id):
+        prody=uct=get_object_or_404(product,pk=product_id)
+        product.delete()
+        return HttpResponse(status=status.HTTP_204_NO_CONTENT)
+
+            
      
 
     
 
 
-    if request.method=='PATCH':
-        serializer=productserializer(data=request.data,instance=product,partial=True)
+    
 
-        if serializer.is_valid():
-            product.name=serializer.validated_data.get('name',product.name)
-            product.price=serializer.validated_data.get('price',product.price)
-            product.quantity=serializer.validated_data.get('quantity',product.quantity)
-            product.brand=serializer.validated_data.get('brand',product.brand)
-
-            product.save()
-
-            return build_response('product updated successfully', status_code=status.HTTP_200_OK,data=serializer.data)
-        else:
-            return build_response('validation failed',status_code=status.HTTP_404_BAD_REQUEST,errors=serializer.errors)
             
 
-
-    if request.method=="DELETE":
-        product.delete()
-        return HttpResponse(status=status.HTTP_204_NO_CONTENT)
 
     
         

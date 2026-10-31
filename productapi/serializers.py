@@ -1,9 +1,13 @@
 from rest_framework import serializers
-class productserializer(serializers.Serializer):
-    name=serializers.CharField()
-    price=serializers.FloatField()
-    quantity=serializers.IntegerField()
-    brand=serializers.CharField()
+from .models import Product
+class productserializer(serializers.ModelSerializer):
+
+
+   class Meta:
+    model=Product
+    fields=['id','name','price','quantity','brand']
+    read_only_fields=['id']
+
 
 
     def validate_price(self,price):
