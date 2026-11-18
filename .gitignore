@@ -1,5 +1,34 @@
+# Python / Django
 __pycache__/
 *.py[cod]
-venv/
-.env
+*$py.class
+*.sqlite3
 db.sqlite3
+db.sqlite3-journal
+media/
+staticfiles/
+.env
+.venv/
+venv/
+ENV/
+
+# Node / Frontend (IMPORTANT: Never commit node_modules)
+node_modules/
+**/node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.pnpm-debug.log*
+dist/
+dist-ssr/
+*.local
+.vite/
+
+# IDE / Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
